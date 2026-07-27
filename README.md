@@ -9,7 +9,12 @@ Source for <https://zhangzhstu.github.io/bond/>, the page for
 ## What is here
 
     index.html        the whole page — one file, no build step
-    bond-paper.pdf    the paper, built without the `review` option (no line numbers)
+
+The paper PDF is deliberately NOT in this folder. An unlinked file in a public
+repository is still public — it is served at its own URL and indexed — so while
+the paper button reads TBD the PDF is kept out of the repository entirely. It
+lives in `../bond-site-assets-heldback/`; drop it back in beside `index.html`
+and point the button at it when the paper is ready to be public.
 
 `index.html` has no dependencies except one Google Fonts stylesheet for the
 handwriting face. Everything else — the sketched frames, the arrows, the live

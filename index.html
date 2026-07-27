@@ -68,6 +68,11 @@ h1 .acro svg{position:absolute;left:-4%;bottom:-14px;width:108%;height:16px;over
 .btn:hover{color:var(--red)}
 .btn:hover svg path{stroke:var(--red)}
 .btn.primary{color:var(--blue)}
+/* pending items: still drawn, but plainly not clickable */
+.btn.tbd{color:var(--pencil);cursor:default}
+.btn.tbd:hover{color:var(--pencil)}
+.btn.tbd svg path{stroke:var(--rule);stroke-dasharray:7 5}
+.btn.tbd:hover svg path{stroke:var(--rule)}
 
 /* ---------- rules and sections ------------------------------------------ */
 .rule{display:block;width:100%;height:14px;margin:60px 0 34px;overflow:visible}
@@ -216,8 +221,9 @@ footer{margin-top:56px;font-size:14px;color:var(--pencil);line-height:1.8}
   </p>
 
   <nav class="links">
-    <a class="btn primary" href="bond-paper.pdf"><span>Paper (PDF)</span></a>
-    <a class="btn" href="#demo"><span>Try the geometry</span></a>
+    <span class="btn tbd"><span>Paper — TBD</span></span>
+    <span class="btn tbd"><span>Code — TBD</span></span>
+    <a class="btn primary" href="#demo"><span>Try the geometry</span></a>
     <a class="btn" href="#cite"><span>BibTeX</span></a>
   </nav>
 </header>
@@ -415,15 +421,7 @@ footer{margin-top:56px;font-size:14px;color:var(--pencil);line-height:1.8}
 
 <section id="cite">
   <h2><span class="n">6</span>Cite</h2>
-<pre class="cite">@inproceedings{zhang2027bond,
-  title     = {What the Kernel Measures: Bounding Feature Geometry
-               for Few-Shot Molecular Property Prediction},
-  author    = {Zhang, Zihang and Li, Jiayi and Sun, Yanan and
-               Cheng, Jiujun and Lei, Zhenyu and Gao, Shangce},
-  booktitle = {Proceedings of the 33rd ACM SIGKDD Conference on
-               Knowledge Discovery and Data Mining (KDD '27)},
-  year      = {2027}
-}</pre>
+<pre class="cite">TBD</pre>
 </section>
 
 <footer>
