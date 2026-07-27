@@ -1,0 +1,801 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BOND — What the Kernel Measures</title>
+<meta name="description" content="A bounded, branch-structured feature map for few-shot molecular property prediction with deep-kernel Gaussian processes.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#fbf8f1;
+  --paper-2:#f3eee2;
+  --ink:#20242e;
+  --ink-soft:#4a5060;
+  --pencil:#8b8880;
+  --red:#b8332a;
+  --blue:#27568e;
+  --green:#3f7a4d;
+  --rule:#d8d0bd;
+  --serif:Charter,"Bitstream Charter","Sitka Text",Cambria,Georgia,serif;
+  --hand:"Caveat","Segoe Print","Bradley Hand",cursive;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--serif);
+  font-size:18px;
+  line-height:1.62;
+  /* faint ruled-notebook wash, kept low enough not to fight the text */
+  background-image:
+    radial-gradient(circle at 18% 12%, rgba(0,0,0,.022) 0 1px, transparent 1px),
+    radial-gradient(circle at 72% 61%, rgba(0,0,0,.018) 0 1px, transparent 1px);
+  background-size:7px 7px, 11px 11px;
+}
+.wrap{max-width:820px;margin:0 auto;padding:0 24px 96px}
+
+/* ---------- masthead ---------------------------------------------------- */
+header{padding:64px 0 8px}
+.eyebrow{
+  font-family:var(--hand);font-size:25px;color:var(--red);
+  transform:rotate(-1.4deg);display:inline-block;margin:0 0 6px
+}
+h1{
+  font-size:clamp(34px,6vw,52px);line-height:1.08;margin:0 0 4px;
+  letter-spacing:-.015em;font-weight:600
+}
+h1 .acro{position:relative;white-space:nowrap}
+h1 .acro svg{position:absolute;left:-4%;bottom:-14px;width:108%;height:16px;overflow:visible}
+.subtitle{font-size:21px;color:var(--ink-soft);margin:18px 0 0;max-width:36em}
+.byline{margin:26px 0 0;font-size:16px;color:var(--ink-soft);line-height:1.9}
+.byline b{font-weight:600;color:var(--ink)}
+.byline .aff{font-size:14px;color:var(--pencil)}
+
+/* ---------- hand-drawn buttons ------------------------------------------ */
+.links{display:flex;flex-wrap:wrap;gap:14px;margin:32px 0 8px}
+.btn{
+  position:relative;display:inline-block;padding:11px 22px;
+  font-family:var(--hand);font-size:23px;text-decoration:none;color:var(--ink);
+  background:transparent;line-height:1
+}
+.btn svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.btn span{position:relative}
+.btn:hover{color:var(--red)}
+.btn:hover svg path{stroke:var(--red)}
+.btn.primary{color:var(--blue)}
+
+/* ---------- rules and sections ------------------------------------------ */
+.rule{display:block;width:100%;height:14px;margin:60px 0 34px;overflow:visible}
+h2{
+  font-size:29px;font-weight:600;margin:0 0 4px;letter-spacing:-.01em
+}
+h2 .n{font-family:var(--hand);color:var(--red);font-size:26px;margin-right:12px}
+.lede{color:var(--ink-soft);margin:0 0 22px;font-size:17px}
+p{margin:0 0 18px}
+a{color:var(--blue)}
+strong{font-weight:600}
+code,.mono{
+  font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  font-size:.86em;background:var(--paper-2);padding:1px 5px;border-radius:3px
+}
+
+/* ---------- margin notes ------------------------------------------------ */
+.note{
+  font-family:var(--hand);font-size:22px;color:var(--red);
+  line-height:1.35;margin:26px 0;padding-left:16px;
+  border-left:2px solid rgba(184,51,42,.35);transform:rotate(-.35deg)
+}
+.note.blue{color:var(--blue);border-left-color:rgba(39,86,142,.35)}
+
+/* ---------- the two failure modes --------------------------------------- */
+.fails{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin:30px 0 8px}
+.fail{position:relative;padding:22px 22px 18px}
+.fail svg.frame{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.fail > *{position:relative}
+.fail h3{font-family:var(--hand);font-size:26px;margin:0 0 8px;color:var(--ink)}
+.fail p{font-size:16px;margin:0;color:var(--ink-soft)}
+.fail .tag{
+  position:absolute;top:-13px;left:18px;background:var(--paper);
+  padding:0 8px;font-family:var(--hand);font-size:19px;color:var(--red)
+}
+
+/* ---------- the demo ---------------------------------------------------- */
+.demo{margin:26px 0 10px;position:relative;padding:26px 22px 20px}
+.demo svg.frame{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.demo > *{position:relative}
+.panels{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;align-items:end}
+.panel{text-align:center}
+.panel > svg{width:100%;height:auto;display:block}
+.panel .cap{font-family:var(--hand);font-size:20px;color:var(--ink-soft);margin-top:6px}
+.controls{margin:22px 0 0}
+.slider-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.slider-row label{font-family:var(--hand);font-size:22px;color:var(--ink);white-space:nowrap}
+input[type=range]{
+  flex:1;min-width:200px;-webkit-appearance:none;appearance:none;
+  height:3px;background:var(--ink);border-radius:2px;outline:none
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:20px;height:20px;border-radius:50%;
+  background:var(--red);cursor:grab;border:2px solid var(--paper)
+}
+input[type=range]::-moz-range-thumb{
+  width:18px;height:18px;border-radius:50%;background:var(--red);
+  cursor:grab;border:2px solid var(--paper)
+}
+.presets{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.preset{
+  font-family:var(--hand);font-size:20px;padding:4px 14px;cursor:pointer;
+  background:transparent;border:1.5px solid var(--rule);border-radius:14px 12px 15px 11px;
+  color:var(--ink-soft);transition:.15s
+}
+.preset:hover{border-color:var(--red);color:var(--red)}
+.preset.on{border-color:var(--ink);color:var(--ink);background:var(--paper-2)}
+.readout{
+  margin-top:18px;font-size:16px;color:var(--ink-soft);
+  display:flex;gap:26px;flex-wrap:wrap
+}
+.readout b{font-variant-numeric:tabular-nums;color:var(--ink);font-weight:600}
+.verdict{font-family:var(--hand);font-size:24px;margin-top:6px}
+
+/* ---------- results ----------------------------------------------------- */
+/* the table scrolls inside its own box rather than pushing the page sideways */
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:22px 0}
+table{border-collapse:collapse;width:100%;min-width:330px;font-size:16px;margin:0}
+th,td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--rule)}
+th:first-child,td:first-child{text-align:left}
+thead th{
+  font-family:var(--hand);font-size:20px;font-weight:500;
+  color:var(--ink-soft);border-bottom:2px solid var(--ink)
+}
+tbody tr.ours td{font-weight:600}
+tbody tr.ours{background:rgba(184,51,42,.05)}
+td.win{color:var(--red)}
+td.lose{color:var(--pencil)}
+caption{caption-side:bottom;font-size:14px;color:var(--pencil);text-align:left;padding-top:10px}
+
+/* ---------- cite -------------------------------------------------------- */
+pre.cite{
+  background:var(--paper-2);border:1px solid var(--rule);border-radius:3px;
+  padding:16px 18px;overflow-x:auto;font-size:13.5px;line-height:1.55;
+  font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace
+}
+footer{margin-top:56px;font-size:14px;color:var(--pencil);line-height:1.8}
+
+@media (max-width:720px){
+  body{font-size:17px}
+  .fails{grid-template-columns:1fr}
+  .panels{grid-template-columns:1fr;gap:26px}
+  .readout{gap:14px}
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --paper:#16171b;--paper-2:#1e2026;--ink:#e8e4da;--ink-soft:#a8a49a;
+    --pencil:#6f6c66;--red:#e2705f;--blue:#7fa9dd;--green:#7fbb8d;--rule:#33353c;
+  }
+  body{background-image:none}
+}
+</style>
+</head>
+<body>
+
+<!-- the wobble filter every hand-drawn stroke on the page runs through -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="rough">
+    <feTurbulence type="fractalNoise" baseFrequency="0.024" numOctaves="3" seed="11" result="n"/>
+    <feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+  <filter id="rough-lite">
+    <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="2" seed="5" result="n"/>
+    <feDisplacementMap in="SourceGraphic" in2="n" scale="1.3" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+</svg>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">KDD 2027 · AI for Science</div>
+  <h1>What the kernel<br><span class="acro">actually measures</span></h1>
+  <p class="subtitle">
+    Deep-kernel Gaussian processes fit a neural feature map and a kernel together, from twenty
+    molecules. Nobody manages the geometry of the space in between. We show what that costs, and
+    what a bounded feature map does and does not fix.
+  </p>
+
+  <p class="byline">
+    <b>Zihang Zhang</b><span class="aff"> · University of Toyama</span> &nbsp;
+    <b>Jiayi Li</b><span class="aff"> · Ritsumeikan University</span> &nbsp;
+    <b>Yanan Sun</b><span class="aff"> · Sichuan University</span><br>
+    <b>Jiujun Cheng</b><span class="aff"> · Tongji University</span> &nbsp;
+    <b>Zhenyu Lei</b><span class="aff"> · University of Toyama</span> &nbsp;
+    <b>Shangce Gao</b><span class="aff"> · University of Toyama</span>
+  </p>
+
+  <nav class="links">
+    <a class="btn primary" href="bond-paper.pdf"><span>Paper (PDF)</span></a>
+    <a class="btn" href="#demo"><span>Try the geometry</span></a>
+    <a class="btn" href="#cite"><span>BibTeX</span></a>
+  </nav>
+</header>
+
+<svg class="rule" viewBox="0 0 800 14" preserveAspectRatio="none" aria-hidden="true"></svg>
+
+<section>
+  <h2><span class="n">1</span>The thing nobody looks at</h2>
+  <p>
+    A Gaussian process decides everything it decides about a new assay through the pairwise
+    distances between the mapped support molecules. The features and the length&#8209;scale enter the
+    kernel only as a ratio, <span class="mono">‖z<sub>i</sub>&#8722;z<sub>j</sub>‖ / ℓ</span>. So if
+    the map rescales, the kernel cannot tell the difference between a better representation and a
+    bigger one.
+  </p>
+  <p>
+    With twenty support points that is not a hypothetical. The same molecules, run through the same
+    encoder at three different scales, give you a kernel that is rank one, a kernel that is the
+    identity, and a kernel that is useful — and only the middle one lets you estimate ℓ at all.
+  </p>
+  <div class="note">Slide the scale below and watch the Gram matrix collapse, then saturate. ↓</div>
+</section>
+
+<section id="demo">
+  <div class="demo">
+    <svg class="frame" preserveAspectRatio="none" aria-hidden="true"></svg>
+
+    <div class="panels">
+      <div class="panel">
+        <svg id="pts" viewBox="0 0 200 200" role="img" aria-label="Nine support molecules in feature space"></svg>
+        <div class="cap">nine support points</div>
+      </div>
+      <div class="panel">
+        <svg id="gram" viewBox="0 0 200 200" role="img" aria-label="The resulting nine by nine kernel matrix"></svg>
+        <div class="cap">the kernel they give</div>
+      </div>
+      <div class="panel">
+        <svg id="prof" viewBox="0 0 200 200" role="img" aria-label="Length-scale information against distance"></svg>
+        <div class="cap">length&#8209;scale information</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="slider-row">
+        <label for="scale">scale of the map</label>
+        <!-- autocomplete=off stops the browser restoring a previous visit's
+             position, which would drop the reader somewhere the text does not
+             describe; the script resets it on pageshow for the bfcache case -->
+        <input id="scale" type="range" min="-160" max="160" value="0" step="1"
+               autocomplete="off" aria-label="scale of the feature map">
+      </div>
+      <div class="presets">
+        <button class="preset" data-v="-118">collapsed</button>
+        <button class="preset on" data-v="0">median heuristic</button>
+        <button class="preset" data-v="118">dispersed</button>
+      </div>
+      <div class="readout">
+        <span>median <span class="mono">r</span> = <b id="rmed">1.41</b></span>
+        <span>information kept = <b id="info">94%</b></span>
+        <span>effective rank of <span class="mono">K</span> = <b id="rank">3.7</b></span>
+      </div>
+      <div class="verdict" id="verdict"></div>
+    </div>
+  </div>
+  <p class="lede" style="margin-top:14px">
+    Matérn&#8209;5/2, nine fixed points, only the scale of the map changing. The information curve is
+    <span class="mono">g(r) = −r k′(r)</span>; it peaks at
+    <span class="mono">r&#8288;*&#8288; = (1+√3)/√5 ≈ 1.22</span>, and the median&#8209;distance
+    initialisation lands at <span class="mono">√2</span> — close enough to keep 94% of the
+    available Fisher information, which is the one thing the standard heuristic quietly gets right.
+  </p>
+</section>
+
+<svg class="rule" viewBox="0 0 800 14" preserveAspectRatio="none" aria-hidden="true"></svg>
+
+<section>
+  <h2><span class="n">2</span>Two things go wrong</h2>
+
+  <div class="fails">
+    <div class="fail">
+      <svg class="frame" preserveAspectRatio="none" aria-hidden="true"></svg>
+      <div class="tag">first</div>
+      <h3>The map is unbounded</h3>
+      <p>
+        A linear or ReLU head can grow without limit. The marginal likelihood cannot penalise it,
+        because growing the features and growing ℓ look identical to the kernel. As the scale runs
+        away the length&#8209;scale stops being identifiable, curvature along it goes to zero, and the
+        hypergradient the outer loop needs becomes ill&#8209;posed.
+      </p>
+    </div>
+    <div class="fail">
+      <svg class="frame" preserveAspectRatio="none" aria-hidden="true"></svg>
+      <div class="tag">second</div>
+      <h3>The two views are not commensurable</h3>
+      <p>
+        A 300&#8209;dimensional learned graph embedding and a 2048&#8209;bit fingerprint do not contribute
+        comparably to Euclidean distance. We measured it: the fingerprint block carries
+        <b>83–92%</b> of the squared pairwise distance going into the map. The topology the encoder
+        learned barely reaches the kernel.
+      </p>
+    </div>
+  </div>
+</section>
+
+<svg class="rule" viewBox="0 0 800 14" preserveAspectRatio="none" aria-hidden="true"></svg>
+
+<section>
+  <h2><span class="n">3</span>The head</h2>
+  <p>
+    <b>BOND</b> — Bounded Output Neural Dendrite. Each output coordinate is a sum of <i>M</i>
+    saturating responses, each weighted by a coefficient that is itself range&#8209;limited:
+  </p>
+
+  <div style="margin:26px 0 20px">
+    <svg id="arch" viewBox="0 0 760 232" style="width:100%;height:auto" role="img"
+         aria-label="Each output coordinate sums M bounded branch responses"></svg>
+  </div>
+
+  <p>
+    Because <span class="mono">ς(·) ∈ (0,1)</span> and <span class="mono">tanh(w) ∈ (−1,1)</span>,
+    every coordinate stays inside <span class="mono">(−M, M)</span> whatever the encoder does. The
+    range is fixed by the parameterisation, not restored afterwards by a normalisation layer — so
+    boundedness is structural rather than learned, and the diameter of the whole feature space is
+    bounded by a constant that does not depend on the data.
+  </p>
+  <div class="note blue">
+    Nothing else changes. Same encoder, same Gaussian process, same bi&#8209;level meta&#8209;learning
+    loop. Only the map between them.
+  </div>
+</section>
+
+<svg class="rule" viewBox="0 0 800 14" preserveAspectRatio="none" aria-hidden="true"></svg>
+
+<section>
+  <h2><span class="n">4</span>What we measured</h2>
+  <p>
+    MoleculeNet, 2&#8209;way 10&#8209;shot, five seeds on Tox21 / SIDER / MUV. Baselines quoted from their
+    own publications.
+  </p>
+
+  <div class="tablewrap">
+  <table>
+    <thead>
+      <tr><th>from scratch</th><th>Tox21</th><th>SIDER</th><th>ToxCast</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>PAR</td><td>82.06</td><td>74.68</td><td>69.72</td></tr>
+      <tr><td>ADKF&#8209;IFT</td><td>82.43</td><td>67.72</td><td>72.07</td></tr>
+      <tr><td>UniMatch</td><td>82.62</td><td>68.13</td><td>77.74</td></tr>
+      <tr class="ours"><td>BOND</td><td class="win">89.78</td><td class="win">89.56</td><td class="lose">76.80</td></tr>
+    </tbody>
+    <tbody>
+      <tr><td style="padding-top:18px">pre&#8209;trained</td><td colspan="3"></td></tr>
+      <tr><td>Pre&#8209;PAR</td><td>84.93</td><td>78.08</td><td>75.12</td></tr>
+      <tr><td>Pre&#8209;UniMatch</td><td>86.35</td><td>80.34</td><td>81.63</td></tr>
+      <tr class="ours"><td>Pre&#8209;BOND</td><td class="win">89.01</td><td class="win">88.77</td><td class="lose">78.51</td></tr>
+    </tbody>
+    <caption>
+      Meta&#8209;test AUROC (%). ToxCast is greyed because BOND does not lead there, and it is run at a
+      single fixed seed. MUV is left out of the table entirely: it saturates near 100 for every
+      feature map we tried, including controls the theory says should degenerate.
+    </caption>
+  </table>
+  </div>
+</section>
+
+<svg class="rule" viewBox="0 0 800 14" preserveAspectRatio="none" aria-hidden="true"></svg>
+
+<section>
+  <h2><span class="n">5</span>The result that argues against us</h2>
+  <p>
+    We went looking for evidence that the bound is what produces the accuracy. We did not find it,
+    and the paper says so.
+  </p>
+  <p>
+    Measured at initialisation and again after 2000 epochs, the three heads that train to
+    completion have raw feature diameters four orders of magnitude apart. Divide each distance by
+    its own median — which is exactly what the median&#8209;heuristic length&#8209;scale initialisation
+    does — and they converge: coefficients of variation of <b>0.30, 0.30 and 0.29</b>. Almost all
+    of the scale variation the bound was introduced to control is absorbed before it reaches the
+    kernel.
+  </p>
+  <p>
+    The ablation points the same way. The arm that aborts meta&#8209;training is the <i>bounded</i>
+    single&#8209;branch head; the <i>unbounded</i> branched head completes every run. Across the arms
+    it is branch structure, not boundedness, that tracks whether the inner solve stays well posed.
+  </p>
+  <div class="note">
+    So: the accuracy is robust to the feature map rather than produced by it. That is a weaker
+    claim than the one we set out to make, and it is the one the measurements support.
+  </div>
+</section>
+
+<svg class="rule" viewBox="0 0 800 14" preserveAspectRatio="none" aria-hidden="true"></svg>
+
+<section id="cite">
+  <h2><span class="n">6</span>Cite</h2>
+<pre class="cite">@inproceedings{zhang2027bond,
+  title     = {What the Kernel Measures: Bounding Feature Geometry
+               for Few-Shot Molecular Property Prediction},
+  author    = {Zhang, Zihang and Li, Jiayi and Sun, Yanan and
+               Cheng, Jiujun and Lei, Zhenyu and Gao, Shangce},
+  booktitle = {Proceedings of the 33rd ACM SIGKDD Conference on
+               Knowledge Discovery and Data Mining (KDD '27)},
+  year      = {2027}
+}</pre>
+</section>
+
+<footer>
+  Corresponding author: Shangce Gao &lt;gaosc@eng.u-toyama.ac.jp&gt;.<br>
+  Supported by JSPS KAKENHI JP25K21298, JP25K24386, JP26K03333, JP26K23843, JP25K03179,
+  and JST SPRING JPMJSP2145.
+</footer>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var SVGNS = "http://www.w3.org/2000/svg";
+
+  function el(tag, attrs) {
+    var n = document.createElementNS(SVGNS, tag);
+    for (var k in attrs) n.setAttribute(k, attrs[k]);
+    return n;
+  }
+  function css(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
+  /* --- a stroke that does not look ruled ---------------------------------
+     Straight lines read as machine-drawn however much you filter them, so the
+     path is built from a few segments that wander off the ideal line first. */
+  function wobble(x1, y1, x2, y2, amp, segs) {
+    amp = amp === undefined ? 1.6 : amp;
+    segs = segs || 5;
+    var d = "M" + x1 + "," + y1, i, t, x, y;
+    for (i = 1; i <= segs; i++) {
+      t = i / segs;
+      x = x1 + (x2 - x1) * t;
+      y = y1 + (y2 - y1) * t;
+      if (i < segs) { x += (Math.random() - .5) * amp * 2; y += (Math.random() - .5) * amp * 2; }
+      d += " L" + x.toFixed(1) + "," + y.toFixed(1);
+    }
+    return d;
+  }
+  function wobbleRect(w, h, amp, inset) {
+    amp = amp || 1.8; inset = inset || 1;
+    var a = inset, b = inset, c = w - inset, e = h - inset;
+    return wobble(a, b, c, b, amp, 6) + wobble(c, b, c, e, amp, 6) +
+           wobble(c, e, a, e, amp, 6) + wobble(a, e, a, b, amp, 6);
+  }
+
+  /* ---- section rules --------------------------------------------------- */
+  Array.prototype.forEach.call(document.querySelectorAll("svg.rule"), function (s) {
+    var p = el("path", {
+      d: wobble(6, 7, 794, 7, 2.2, 9),
+      fill: "none", stroke: css("--rule"), "stroke-width": 2,
+      "stroke-linecap": "round", filter: "url(#rough-lite)"
+    });
+    s.appendChild(p);
+  });
+
+  /* ---- boxes around the buttons, the demo and the failure cards -------- */
+  function frameIn(host, strokeVar, radiusHint) {
+    var svg = host.tagName.toLowerCase() === "svg" ? host : host.querySelector("svg.frame");
+    if (!svg) return;
+    var r = host.getBoundingClientRect();
+    if (!r.width) return;
+    svg.setAttribute("viewBox", "0 0 " + Math.round(r.width) + " " + Math.round(r.height));
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    svg.appendChild(el("path", {
+      d: wobbleRect(Math.round(r.width), Math.round(r.height), radiusHint || 2, 2),
+      fill: "none", stroke: css(strokeVar), "stroke-width": 1.6,
+      "stroke-linejoin": "round", "stroke-linecap": "round", filter: "url(#rough)"
+    }));
+  }
+  function drawFrames() {
+    Array.prototype.forEach.call(document.querySelectorAll(".btn"), function (b) {
+      /* the class matters: frameIn looks the canvas up by `svg.frame` */
+      var svg = b.querySelector("svg.frame");
+      if (!svg) {
+        svg = el("svg", { "class": "frame", preserveAspectRatio: "none" });
+        b.insertBefore(svg, b.firstChild);
+      }
+      frameIn(b, "--ink", 1.5);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll(".fail, .demo"), function (c) {
+      frameIn(c, "--rule", 2.2);
+    });
+  }
+
+  /* ---- the underline under the title ----------------------------------- */
+  (function () {
+    var host = document.querySelector("h1 .acro");
+    if (!host) return;
+    var svg = el("svg", { viewBox: "0 0 100 16", preserveAspectRatio: "none" });
+    svg.appendChild(el("path", {
+      d: wobble(1, 6, 99, 8, 1.4, 8), fill: "none",
+      stroke: css("--red"), "stroke-width": 2.4, "stroke-linecap": "round",
+      filter: "url(#rough-lite)"
+    }));
+    svg.appendChild(el("path", {
+      d: wobble(4, 11, 92, 12, 1.1, 7), fill: "none",
+      stroke: css("--red"), "stroke-width": 1.4, "stroke-linecap": "round",
+      opacity: .5, filter: "url(#rough-lite)"
+    }));
+    host.appendChild(svg);
+  }());
+
+  /* ====================================================================== */
+  /*  the live figure: nine points, one scale, the kernel they produce       */
+  /* ====================================================================== */
+  var S5 = Math.sqrt(5);
+  function matern52(r) { return (1 + S5 * r + (5 / 3) * r * r) * Math.exp(-S5 * r); }
+  function gprof(r) { return (5 / 3) * r * r * (1 + S5 * r) * Math.exp(-S5 * r); }
+  var R_STAR = (1 + Math.sqrt(3)) / Math.sqrt(5);
+  var G_STAR = gprof(R_STAR);
+
+  /* nine fixed points; written out rather than generated so the picture is
+     the same for every reader and matches Figure 2 of the paper */
+  var PTS = [
+    [-0.82, 0.44], [-0.55, -0.21], [-0.31, 0.71], [0.05, -0.62], [0.18, 0.12],
+    [0.44, 0.66], [0.62, -0.35], [0.86, 0.28], [-0.06, 0.93]
+  ];
+  var N = PTS.length;
+
+  var BASE = (function () {   /* median pairwise distance of the unit cloud */
+    var d = [], i, j;
+    for (i = 0; i < N; i++) for (j = i + 1; j < N; j++) {
+      d.push(Math.hypot(PTS[i][0] - PTS[j][0], PTS[i][1] - PTS[j][1]));
+    }
+    d.sort(function (a, b) { return a - b; });
+    return d[(d.length / 2) | 0];
+  }());
+
+  var svgPts = document.getElementById("pts");
+  var svgGram = document.getElementById("gram");
+  var svgProf = document.getElementById("prof");
+  var out = {
+    r: document.getElementById("rmed"), i: document.getElementById("info"),
+    k: document.getElementById("rank"), v: document.getElementById("verdict")
+  };
+
+  function clear(s) { while (s.firstChild) s.removeChild(s.firstChild); }
+
+  function render(scale) {
+    var ink = css("--ink"), soft = css("--ink-soft"), red = css("--red"),
+        blue = css("--blue"), rule = css("--rule"), paper = css("--paper");
+
+    /* ---------- panel 1: the points ---------- */
+    clear(svgPts);
+    svgPts.appendChild(el("path", {
+      d: wobbleRect(200, 200, 1.6, 3), fill: "none", stroke: rule,
+      "stroke-width": 1.4, filter: "url(#rough-lite)"
+    }));
+    /* the cloud is drawn at a compressed scale so it stays on-screen across
+       four orders of magnitude; the caption is the kernel, not this panel */
+    var view = Math.max(0.35, Math.min(3.4, Math.pow(scale, 0.42)));
+    var i;
+    for (i = 0; i < N; i++) {
+      svgPts.appendChild(el("circle", {
+        cx: (100 + PTS[i][0] * 62 * view / 1.0).toFixed(1),
+        cy: (100 - PTS[i][1] * 62 * view / 1.0).toFixed(1),
+        r: 5, fill: blue, opacity: .82
+      }));
+    }
+
+    /* ---------- panel 2: the Gram matrix ---------- */
+    clear(svgGram);
+    var rs = [], j, rij, cell = 200 / N, med;
+    for (i = 0; i < N; i++) {
+      for (j = 0; j < N; j++) {
+        rij = scale * Math.hypot(PTS[i][0] - PTS[j][0], PTS[i][1] - PTS[j][1]);
+        var k = matern52(rij);
+        if (j > i) rs.push(rij);
+        /* ink density carries the kernel value: full ink = 1, paper = 0 */
+        svgGram.appendChild(el("rect", {
+          x: (j * cell).toFixed(2), y: (i * cell).toFixed(2),
+          width: (cell + .4).toFixed(2), height: (cell + .4).toFixed(2),
+          fill: ink, opacity: (0.06 + 0.94 * k).toFixed(3)
+        }));
+      }
+    }
+    svgGram.appendChild(el("path", {
+      d: wobbleRect(200, 200, 1.6, 1), fill: "none", stroke: soft,
+      "stroke-width": 1.4, filter: "url(#rough-lite)"
+    }));
+    rs.sort(function (a, b) { return a - b; });
+    med = rs[(rs.length / 2) | 0];
+
+    /* ---------- panel 3: the information profile ---------- */
+    clear(svgProf);
+    var RMAX = 4, x, y, d = "", first = true;
+    for (x = 0; x <= RMAX; x += 0.04) {
+      var px = 18 + (x / RMAX) * 168;
+      var py = 176 - (gprof(x) / G_STAR) * 140;
+      d += (first ? "M" : "L") + px.toFixed(1) + "," + py.toFixed(1);
+      first = false;
+    }
+    svgProf.appendChild(el("path", {
+      d: wobble(18, 176, 190, 176, 1.2, 6), fill: "none", stroke: soft,
+      "stroke-width": 1.3, filter: "url(#rough-lite)"
+    }));
+    svgProf.appendChild(el("path", {
+      d: d, fill: "none", stroke: ink, "stroke-width": 2,
+      "stroke-linejoin": "round", filter: "url(#rough-lite)"
+    }));
+    /* the two dead zones, shaded */
+    [[0, 0.35], [2.6, RMAX]].forEach(function (z) {
+      var x0 = 18 + (z[0] / RMAX) * 168, x1 = 18 + (z[1] / RMAX) * 168;
+      svgProf.appendChild(el("rect", {
+        x: x0.toFixed(1), y: 30, width: (x1 - x0).toFixed(1), height: 146,
+        fill: soft, opacity: .09
+      }));
+    });
+    /* where this scale puts the median pair */
+    var mx = 18 + (Math.min(med, RMAX) / RMAX) * 168;
+    var my = 176 - (gprof(Math.min(med, RMAX)) / G_STAR) * 140;
+    svgProf.appendChild(el("path", {
+      d: wobble(mx, 176, mx, my, 1.1, 4), fill: "none", stroke: red,
+      "stroke-width": 1.4, "stroke-dasharray": "4 3", filter: "url(#rough-lite)"
+    }));
+    svgProf.appendChild(el("circle", { cx: mx.toFixed(1), cy: my.toFixed(1), r: 5.5, fill: red }));
+
+    /* ---------- the numbers ----------
+       The Fisher information for log-ell goes as g squared, not g -- it is
+       g-underbar squared in the numerator of the bound -- so the fraction kept
+       is the square of the g ratio. At the median heuristic that is
+       0.9718^2 = 94.4%, not 97.2%, which is the figure quoted in the text. */
+    var info = Math.pow(gprof(med) / G_STAR, 2);
+    out.r.textContent = med < 0.01 ? med.toExponential(1) : med.toFixed(2);
+    out.i.textContent = (info * 100 < 1 ? (info * 100).toFixed(2) : Math.round(info * 100)) + "%";
+
+    /* effective rank of K, read off its eigenvalues via the participation ratio */
+    var K = [], tr = 0, fro = 0;
+    for (i = 0; i < N; i++) {
+      K[i] = [];
+      for (j = 0; j < N; j++) {
+        K[i][j] = matern52(scale * Math.hypot(PTS[i][0] - PTS[j][0], PTS[i][1] - PTS[j][1]));
+        fro += K[i][j] * K[i][j];
+      }
+      tr += K[i][i];
+    }
+    var erank = (tr * tr) / fro;      /* = (Σλ)² / Σλ² , exact for symmetric K */
+    out.k.textContent = erank.toFixed(1);
+
+    if (med < 0.35) {
+      out.v.style.color = red;
+      out.v.textContent = "every pair looks identical — the kernel is rank one and ℓ is invisible";
+    } else if (med > 2.6) {
+      out.v.style.color = red;
+      out.v.textContent = "every pair looks infinitely far apart — the kernel is the identity";
+    } else {
+      out.v.style.color = css("--green");
+      out.v.textContent = "the distances still carry information about ℓ";
+    }
+  }
+
+  var slider = document.getElementById("scale");
+  function scaleFromSlider(v) {
+    /* the slider is log-spaced so all three regimes are reachable by hand;
+       0 lands on the median heuristic, r = √2 */
+    return (Math.SQRT2 / BASE) * Math.pow(10, v / 62);
+  }
+  function update() {
+    render(scaleFromSlider(+slider.value));
+    Array.prototype.forEach.call(document.querySelectorAll(".preset"), function (b) {
+      b.classList.toggle("on", +b.dataset.v === +slider.value);
+    });
+  }
+  slider.addEventListener("input", update);
+  Array.prototype.forEach.call(document.querySelectorAll(".preset"), function (b) {
+    b.addEventListener("click", function () { slider.value = b.dataset.v; update(); });
+  });
+
+  /* ---- the architecture sketch ----------------------------------------- */
+  (function () {
+    var s = document.getElementById("arch");
+    if (!s) return;
+    var ink = css("--ink"), soft = css("--ink-soft"), red = css("--red"), blue = css("--blue");
+    function txt(x, y, t, o) {
+      o = o || {};
+      var n = el("text", {
+        x: x, y: y, fill: o.fill || ink, "font-size": o.size || 15,
+        "text-anchor": o.anchor || "middle",
+        "font-family": o.hand ? '"Caveat","Segoe Print",cursive' : "Charter,Georgia,serif"
+      });
+      n.textContent = t;
+      return n;
+    }
+    function box(x, y, w, h, stroke) {
+      var g = el("g", { transform: "translate(" + x + "," + y + ")" });
+      g.appendChild(el("path", {
+        d: wobbleRect(w, h, 1.7, 1), fill: "none", stroke: stroke || soft,
+        "stroke-width": 1.5, filter: "url(#rough)"
+      }));
+      return g;
+    }
+    function arrow(x1, y1, x2, y2, stroke) {
+      var g = el("g");
+      g.appendChild(el("path", {
+        d: wobble(x1, y1, x2, y2, 1.1, 4), fill: "none", stroke: stroke || ink,
+        "stroke-width": 1.6, "stroke-linecap": "round", filter: "url(#rough-lite)"
+      }));
+      var a = Math.atan2(y2 - y1, x2 - x1);
+      g.appendChild(el("path", {
+        d: "M" + x2 + "," + y2 +
+           " L" + (x2 - 8 * Math.cos(a - .42)) + "," + (y2 - 8 * Math.sin(a - .42)) +
+           " M" + x2 + "," + y2 +
+           " L" + (x2 - 8 * Math.cos(a + .42)) + "," + (y2 - 8 * Math.sin(a + .42)),
+        fill: "none", stroke: stroke || ink, "stroke-width": 1.6, "stroke-linecap": "round"
+      }));
+      return g;
+    }
+
+    /* Everything is centred on the mid-line at y = 105. The three branch boxes
+       are 46 tall with a 28 gap, so they clear each other -- an earlier spacing
+       of 52 tall on a 50 pitch made them overlap and read as one block. */
+    var MID = 105, BH = 46, ys = [8, 82, 156];
+    var labels = ["ς(a₁ᵀx + b₁)", "ς(a₂ᵀx + b₂)", "ς(aₘᵀx + bₘ)"];
+    var gates = ["×tanh(w₁)", "×tanh(w₂)", "×tanh(wₘ)"];
+    var gateAt = [[472, 58], [461, 96], [472, 158]];
+
+    /* input */
+    s.appendChild(box(8, MID - 26, 118, 52));
+    s.appendChild(txt(67, MID - 4, "graph + ECFP4", { size: 14 }));
+    s.appendChild(txt(67, MID + 14, "2348-dim", { size: 12, fill: soft }));
+
+    /* the M branches */
+    ys.forEach(function (y, i) {
+      var cy = y + BH / 2;
+      s.appendChild(arrow(128, MID, 236, cy, soft));
+      s.appendChild(box(240, y, 168, BH, blue));
+      s.appendChild(txt(324, cy - 1, labels[i], { size: 14, fill: blue }));
+      s.appendChild(txt(324, cy + 15, "in (0,1)", { size: 11, fill: soft }));
+      s.appendChild(arrow(410, cy, 512, MID, soft));
+      s.appendChild(txt(gateAt[i][0], gateAt[i][1], gates[i],
+                        { size: 18, fill: red, hand: true }));
+    });
+    s.appendChild(txt(324, 220, "M branches", { size: 21, hand: true, fill: soft }));
+
+    /* the sum, and where it goes */
+    s.appendChild(box(516, MID - 26, 106, 52, ink));
+    s.appendChild(txt(569, MID - 2, "zⱼ", { size: 18 }));
+    s.appendChild(txt(569, MID + 15, "in (−M, M)", { size: 11, fill: red }));
+
+    s.appendChild(arrow(624, MID, 700, MID, soft));
+    s.appendChild(txt(730, MID - 4, "to the", { size: 13, fill: soft }));
+    s.appendChild(txt(730, MID + 12, "kernel", { size: 13, fill: soft }));
+  }());
+
+  /* ---- go --------------------------------------------------------------- */
+  /* Browsers restore range inputs across a reload, which would land the reader
+     on whatever position was last dragged to rather than on the median
+     heuristic the surrounding text describes. Reset it once, on first paint --
+     not inside boot(), which also runs when the colour scheme changes and would
+     otherwise throw away a position the reader had chosen. */
+  slider.value = 0;
+  function boot() { drawFrames(); update(); }
+  /* a back-navigation restores the page from the bfcache without re-running the
+     script, so the reset has to happen here too */
+  window.addEventListener("pageshow", function (e) {
+    if (e.persisted) { slider.value = 0; update(); }
+  });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(boot);
+  else window.addEventListener("load", boot);
+  boot();
+
+  var t;
+  window.addEventListener("resize", function () {
+    clearTimeout(t); t = setTimeout(drawFrames, 140);
+  });
+  if (window.matchMedia) {
+    var mq = window.matchMedia("(prefers-color-scheme: dark)");
+    if (mq.addEventListener) mq.addEventListener("change", boot);
+  }
+}());
+</script>
+</body>
+</html>
