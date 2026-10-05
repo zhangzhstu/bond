@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+data/
+work/
+results*/
+reeval/
+logs*/
+*.log
+*.pth
+!chem_lib/model_gin/*.pth
