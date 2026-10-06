@@ -159,6 +159,7 @@ support draws per assay for `support_only` and 5 for the two adaptation protocol
 | result | produced by |
 |---|---|
 | clean protocol: BOND, ADKF-IFT, ADKF-IFT on GIN + ECFP4 and the other configurations of `run_clean_grid.sh` | `scripts/run_clean_grid.sh`, then `scripts/reeval_clean.sh 0` (each final checkpoint re-scored `support_only` by `reeval_checkpoint.py`) |
+| clean protocol, ADKF-IFT at query size 32 | queue below (`--n-query 32`), then `scripts/reeval_clean.sh 0` |
 | GP on ECFP4 | `scripts/ecfpgp_eval.sh 0` |
 | ECFP4 Tanimoto 1-NN | `ecfp_1nn.py` (below; CPU, nothing trained, same episodes as the re-scores) |
 | legacy-trained main grid under `legacy` / `disjoint` / `support_only` | `scripts/run_grid.sh`, then `scripts/reeval_all.sh 0 results_kdd` |
@@ -181,11 +182,25 @@ support draws per assay for `support_only` and 5 for the two adaptation protocol
     done; done > work/queue_legacy.txt
     ./scripts/run_queue.sh work/queue_legacy.txt 0 1
 
+    for ds in sider tox21; do for cfg in "adkfq32 0" "adkfecfpq32 1"; do set -- $cfg
+      echo "clean_$1_${ds}_pre0_s0 --dataset $ds --test-dataset $ds --pretrained 0 --seed 0" \
+           "--update_step_test 0 --eval_protocol support_only --epochs 2000 --eval_steps 50" \
+           "--save-steps 2000 --head_type identity --use_fingerprints $2 --use_gin 1 --n-query 32"
+    done; done > work/queue_q32.txt
+    cp work/queue_q32.txt work/queue_q32.txt.all
+    ./scripts/run_queue.sh work/queue_q32.txt 0 1
+
     for head in dnm mlp; do
       python main_bond.py --dataset sider --test-dataset sider --pretrained 0 --seed 0 --epochs 400 \
           --eval_steps 10 --save-steps 400 --head_type $head --eval_protocol legacy --log_geometry 1 \
           --result_path work/runs/geom_${head}_sider_pre0_s0
     done
+
+The `tanh_linear` log runs the full 2000 epochs and stops at a Cholesky failure near epoch 1857:
+
+    python main_bond.py --dataset sider --test-dataset sider --pretrained 0 --seed 0 --epochs 2000 \
+        --eval_steps 10 --save-steps 2000 --head_type tanh_linear --eval_protocol legacy --log_geometry 1 \
+        --result_path work/runs/geom_tanh_sider_pre0_s0
 
 `collect_tables.py` averages a re-score over draws per assay, then over assays. For a training
 run it reports the final evaluation, with the best evaluation over training listed alongside for
